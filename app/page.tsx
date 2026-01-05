@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Video {
   video_id: string;
@@ -35,6 +36,7 @@ interface Brand {
 }
 
 export default function Dashboard() {
+  const { user, signOut, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
@@ -73,12 +75,16 @@ export default function Dashboard() {
       });
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null; // Auth provider will redirect to login
   }
 
   return (
@@ -87,6 +93,9 @@ export default function Dashboard() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">🎵 TikTok Discovery Dashboard</h1>
           <div className="flex gap-4 items-center">
+            <div className="text-gray-400 text-sm">
+              {user.email}
+            </div>
             <select
               value={selectedBrand}
               onChange={(e) => setSelectedBrand(e.target.value)}
@@ -105,6 +114,12 @@ export default function Dashboard() {
             >
               Manage
             </Link>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
 

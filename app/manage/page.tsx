@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Brand {
   id: string;
@@ -18,6 +19,7 @@ interface Account {
 }
 
 export default function ManagePage() {
+  const { user, signOut, loading: authLoading } = useAuth();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('');
@@ -121,7 +123,7 @@ export default function ManagePage() {
     alert(data.message || data.note);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
@@ -129,14 +131,29 @@ export default function ManagePage() {
     );
   }
 
+  if (!user) {
+    return null; // Auth provider will redirect to login
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">Manage Brands & Accounts</h1>
-          <Link href="/" className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
-            Back to Dashboard
-          </Link>
+          <div className="flex gap-4 items-center">
+            <div className="text-gray-400 text-sm">
+              {user.email}
+            </div>
+            <Link href="/" className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+              Back to Dashboard
+            </Link>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-8">
