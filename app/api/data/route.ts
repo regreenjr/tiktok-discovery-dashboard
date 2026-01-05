@@ -8,30 +8,45 @@ const supabase = createClient(
 
 export async function GET() {
   try {
+    console.log('API called - checking env vars:', {
+      hasUrl: !!process.env.SUPABASE_URL,
+      hasKey: !!process.env.SUPABASE_SERVICE_KEY,
+      url: process.env.SUPABASE_URL
+    });
+
     // Get competitor videos
-    const { data: videos } = await supabase
+    const { data: videos, error: vError } = await supabase
       .from('competitor_videos')
       .select('*')
       .order('views', { ascending: false })
       .limit(20);
 
+    if (vError) console.error('Videos error:', vError);
+
     // Get pain points
-    const { data: painPoints } = await supabase
+    const { data: painPoints, error: pError } = await supabase
       .from('pain_points')
       .select('*')
       .order('upvotes', { ascending: false })
       .limit(10);
 
+    if (pError) console.error('Pain points error:', pError);
+
     // Get trending sounds
-    const { data: sounds } = await supabase
+    const { data: sounds, error: sError } = await supabase
       .from('trending_assets')
       .select('*')
       .eq('asset_type', 'sound')
       .order('virality_score', { ascending: false })
       .limit(15);
 
-    // Get stats
-    const { data: stats } = await supabase.rpc('get_stats', {}).single();
+    if (sError) console.error('Sounds error:', sError);
+
+    console.log('Query results:', {
+      videos: videos?.length || 0,
+      painPoints: painPoints?.length || 0,
+      sounds: sounds?.length || 0
+    });
 
     return NextResponse.json({
       videos: videos || [],
