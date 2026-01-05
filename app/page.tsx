@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface Video {
   video_id: string;
@@ -28,12 +29,39 @@ interface Sound {
   virality_score: number;
 }
 
+interface Brand {
+  id: string;
+  name: string;
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/data')
+    loadBrands();
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [selectedBrand]);
+
+  const loadBrands = async () => {
+    const res = await fetch('/api/brands');
+    const data = await res.json();
+    setBrands(data);
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    const url = selectedBrand && selectedBrand !== 'all'
+      ? `/api/data?brandId=${selectedBrand}`
+      : '/api/data';
+
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         setData(data);
@@ -43,7 +71,7 @@ export default function Dashboard() {
         console.error('Error loading data:', err);
         setLoading(false);
       });
-  }, []);
+  };
 
   if (loading) {
     return (
@@ -56,7 +84,29 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">🎵 TikTok Discovery Dashboard</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">🎵 TikTok Discovery Dashboard</h1>
+          <div className="flex gap-4 items-center">
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="px-4 py-2 bg-gray-800 rounded border border-gray-700"
+            >
+              <option value="all">All Brands</option>
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                </option>
+              ))}
+            </select>
+            <Link
+              href="/manage"
+              className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+            >
+              Manage
+            </Link>
+          </div>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-6 mb-12">

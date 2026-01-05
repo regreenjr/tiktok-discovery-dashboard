@@ -6,20 +6,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 );
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const brandId = searchParams.get('brandId');
+
     console.log('API called - checking env vars:', {
       hasUrl: !!process.env.SUPABASE_URL,
       hasKey: !!process.env.SUPABASE_SERVICE_KEY,
-      url: process.env.SUPABASE_URL
+      url: process.env.SUPABASE_URL,
+      brandId
     });
 
-    // Get competitor videos
-    const { data: videos, error: vError } = await supabase
+    // Get competitor videos (filtered by brand if specified)
+    let videoQuery = supabase
       .from('competitor_videos')
-      .select('*')
+      .select('*, competitor_accounts!inner(brand_id)')
       .order('views', { ascending: false })
       .limit(20);
+
+    if (brandId) {
+      videoQuery = videoQuery.eq('competitor_accounts.brand_id', brandId);
+    }
+
+    const { data: videos, error: vError } = await videoQuery;
 
     if (vError) console.error('Videos error:', vError);
 
