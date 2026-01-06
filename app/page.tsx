@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
+import ContentPatterns from '@/components/ContentPatterns';
+import HashtagInsights from '@/components/HashtagInsights';
+import FilterBar, { FilterOptions } from '@/components/FilterBar';
 
 interface Video {
   video_id: string;
@@ -13,8 +16,12 @@ interface Video {
   likes: number;
   comments: number;
   engagement_rate: number;
+  virality_score?: number;
   video_url: string;
   images?: string[];
+  hook_type?: string;
+  content_format?: string;
+  emotional_trigger?: string;
 }
 
 interface PainPoint {
@@ -44,6 +51,17 @@ export default function Dashboard() {
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [postTypeFilter, setPostTypeFilter] = useState<'all' | 'video' | 'slideshow'>('all');
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterOptions>({
+    search: '',
+    hookType: '',
+    contentFormat: '',
+    emotionalTrigger: '',
+    minVirality: 0,
+    minViews: 0,
+    minEngagement: 0,
+    accountId: '',
+    postType: '',
+  });
 
   useEffect(() => {
     loadBrands();
@@ -76,6 +94,38 @@ export default function Dashboard() {
         console.error('Error loading data:', err);
         setLoading(false);
       });
+  };
+
+  const applyFilters = (videos: Video[]) => {
+    if (!videos) return [];
+
+    return videos.filter((video) => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const captionMatch = video.caption?.toLowerCase().includes(searchLower);
+        if (!captionMatch) return false;
+      }
+
+      // AI Pattern filters
+      if (filters.hookType && video.hook_type !== filters.hookType) return false;
+      if (filters.contentFormat && video.content_format !== filters.contentFormat) return false;
+      if (filters.emotionalTrigger && video.emotional_trigger !== filters.emotionalTrigger) return false;
+
+      // Performance filters
+      if (filters.minVirality > 0 && (video.virality_score || 0) < filters.minVirality) return false;
+      if (filters.minViews > 0 && video.views < filters.minViews) return false;
+      if (filters.minEngagement > 0 && video.engagement_rate < filters.minEngagement) return false;
+
+      // Account filter
+      if (filters.accountId && video.account_handle !== filters.accountId) return false;
+
+      // Post type filter
+      if (filters.postType && video.post_type !== filters.postType) return false;
+      if (postTypeFilter !== 'all' && video.post_type !== postTypeFilter) return false;
+
+      return true;
+    });
   };
 
   if (loading || authLoading) {
@@ -151,12 +201,32 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Week 2: AI Content Pattern Analysis */}
+        <div className="mb-12">
+          <ContentPatterns />
+        </div>
+
+        {/* Week 3: Hashtag Performance Insights */}
+        <div className="mb-12">
+          <HashtagInsights />
+        </div>
+
+        {/* Week 3: Advanced Search & Filters */}
+        <FilterBar
+          onFilterChange={setFilters}
+          accounts={data?.videos?.map((v: Video) => ({
+            id: v.account_handle,
+            username: v.account_handle,
+          })).filter((acc: any, idx: number, arr: any[]) =>
+            arr.findIndex((a) => a.id === acc.id) === idx
+          ) || []}
+        />
+
         {/* Top Videos */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4">📈 Top Performing Videos</h2>
           <div className="grid gap-4">
-            {data?.videos
-              ?.filter((video: Video) => postTypeFilter === 'all' || video.post_type === postTypeFilter)
+            {applyFilters(data?.videos || [])
               .slice(0, 10)
               .map((video: Video) => (
                 <div key={video.video_id} className="bg-gray-800 rounded-lg p-6">
@@ -200,11 +270,42 @@ export default function Dashboard() {
                         </a>
                       </div>
                       <p className="text-gray-300 mb-3">{video.caption}</p>
+
+                      {/* AI Pattern Badges */}
+                      {(video.hook_type || video.content_format || video.emotional_trigger) && (
+                        <div className="flex gap-2 mb-3 flex-wrap">
+                          {video.hook_type && (
+                            <span className="px-2 py-1 bg-blue-900/50 border border-blue-700 rounded text-xs text-blue-300">
+                              🎣 {video.hook_type}
+                            </span>
+                          )}
+                          {video.content_format && (
+                            <span className="px-2 py-1 bg-purple-900/50 border border-purple-700 rounded text-xs text-purple-300">
+                              📹 {video.content_format}
+                            </span>
+                          )}
+                          {video.emotional_trigger && (
+                            <span className="px-2 py-1 bg-green-900/50 border border-green-700 rounded text-xs text-green-300">
+                              💡 {video.emotional_trigger}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex gap-6 text-sm text-gray-400">
                         <span>👁️ {video.views.toLocaleString()} views</span>
                         <span>❤️ {video.likes.toLocaleString()} likes</span>
                         <span>💬 {video.comments.toLocaleString()} comments</span>
                         <span>📊 {(video.engagement_rate * 100).toFixed(2)}% engagement</span>
+                        {video.virality_score && (
+                          <span className={`font-semibold ${
+                            video.virality_score >= 2.0 ? 'text-green-400' :
+                            video.virality_score >= 1.0 ? 'text-yellow-400' :
+                            'text-gray-400'
+                          }`}>
+                            🔥 {video.virality_score.toFixed(2)}x
+                          </span>
+                        )}
                       </div>
 
                       {/* Slideshow Image Gallery */}
