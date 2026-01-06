@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 // GET - List all brands
 export async function GET() {
+  const supabase = getSupabase();
   const { data: brands, error } = await supabase
     .from('brands')
     .select('*')
@@ -17,6 +18,7 @@ export async function GET() {
 
 // POST - Create a new brand
 export async function POST(request: Request) {
+  const supabase = getSupabase();
   const body = await request.json();
   const { name, description } = body;
 
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
 
 // DELETE - Delete a brand
 export async function DELETE(request: Request) {
+  const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 

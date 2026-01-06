@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 interface HashtagStats {
   hashtag: string;
@@ -15,6 +15,7 @@ interface HashtagStats {
  * Analyzes hashtag performance from video captions
  */
 export async function GET() {
+  const supabase = getSupabase();
   try {
     // Get all videos with captions
     const { data: videos, error } = await supabase

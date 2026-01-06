@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function GET() {
-
+  const supabase = getSupabase();
   const { data, error, count } = await supabase
     .from('competitor_videos')
     .select('*', { count: 'exact' })

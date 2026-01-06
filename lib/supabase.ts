@@ -1,11 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Use dummy values during build if env vars not available
-const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const key = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+let cachedClient: SupabaseClient | null = null;
 
 /**
- * Shared Supabase client for server-side use
- * Uses placeholder values during build, real values at runtime
+ * Get Supabase client (lazy initialization)
+ * Only creates client when first accessed, not during module load
  */
-export const supabase = createClient(url, key);
+export function getSupabase(): SupabaseClient {
+  if (!cachedClient) {
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    cachedClient = createClient(url, key);
+  }
+  return cachedClient;
+}

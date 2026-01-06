@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 // GET - List all accounts (optionally filtered by brand)
 export async function GET(request: Request) {
+  const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const brandId = searchParams.get('brandId');
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
 
 // POST - Create a new account
 export async function POST(request: Request) {
+  const supabase = getSupabase();
   const body = await request.json();
   const { handle, brand_id, platform = 'tiktok', is_active = true } = body;
 
@@ -51,6 +53,7 @@ export async function POST(request: Request) {
 
 // PATCH - Update an account
 export async function PATCH(request: Request) {
+  const supabase = getSupabase();
   const body = await request.json();
   const { id, handle, brand_id, is_active } = body;
 
@@ -79,6 +82,7 @@ export async function PATCH(request: Request) {
 
 // DELETE - Delete an account
 export async function DELETE(request: Request) {
+  const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 

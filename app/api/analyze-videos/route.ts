@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { analyzeVideoBatch } from '@/lib/ai/content-analyzer';
 
 /**
@@ -7,6 +7,7 @@ import { analyzeVideoBatch } from '@/lib/ai/content-analyzer';
  * Analyzes top-performing videos using Claude AI to identify content patterns
  */
 export async function POST() {
+  const supabase = getSupabase();
   try {
     // Get top 20 videos with high virality for analysis
     const { data: videos, error } = await supabase

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function GET(request: Request) {
+  const supabase = getSupabase();
   try {
     const { searchParams } = new URL(request.url);
     const brandId = searchParams.get('brandId');
