@@ -17,7 +17,6 @@ function getSupabaseClient() {
 }
 
 function LoginContent() {
-  const supabase = getSupabaseClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string>('');
@@ -32,6 +31,7 @@ function LoginContent() {
     }
 
     // Check if already logged in
+    const supabase = getSupabaseClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         router.push('/');
@@ -40,6 +40,7 @@ function LoginContent() {
   }, [router, searchParams]);
 
   const signInWithGoogle = async () => {
+    const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
