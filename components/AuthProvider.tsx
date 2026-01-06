@@ -8,10 +8,15 @@ let supabaseClient: SupabaseClient | null = null;
 
 function getSupabaseClient() {
   if (!supabaseClient) {
-    supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      console.error('Missing Supabase environment variables:', { url: !!url, key: !!key });
+      throw new Error('Supabase configuration is missing. Please check environment variables.');
+    }
+
+    supabaseClient = createClient(url, key);
   }
   return supabaseClient;
 }
