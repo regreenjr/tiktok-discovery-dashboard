@@ -28,6 +28,11 @@ export function getSupabase(): SupabaseClient {
       keyStripped: key?.substring(0, 30),
       hadQuotesUrl: rawUrl !== url,
       hadQuotesKey: rawKey !== key,
+      // Show which env var was actually used
+      urlSource: process.env.SUPABASE_URL ? 'SUPABASE_URL' : 'NEXT_PUBLIC_SUPABASE_URL',
+      keySource: process.env.SUPABASE_SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      // Show full key to compare (only in debug)
+      fullKey: key,
     });
 
     if (!url || !key) {
