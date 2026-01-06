@@ -235,9 +235,13 @@ export default function Dashboard() {
                     <div className="flex-shrink-0 w-32 h-32 bg-gray-700 rounded-lg overflow-hidden">
                       {video.post_type === 'slideshow' && video.images && video.images.length > 0 ? (
                         <img
-                          src={`${video.images[0]}?v=${Date.now()}`}
+                          src={`${video.images[0]}?v=3`}
                           alt="Slideshow preview"
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.style.display = 'none';
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-500">
@@ -314,9 +318,13 @@ export default function Dashboard() {
                           {video.images.slice(1, 5).map((img, idx) => (
                             <img
                               key={idx}
-                              src={`${img}?v=${Date.now()}`}
+                              src={`${img}?v=3`}
                               alt={`Slide ${idx + 2}`}
                               className="w-16 h-16 object-cover rounded"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                              }}
                             />
                           ))}
                           {video.images.length > 5 && (
