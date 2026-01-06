@@ -17,9 +17,8 @@ export async function GET() {
     keySource: process.env.SUPABASE_SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     urlLength: url.length,
     keyLength: key.length,
-    urlFirst30: url.substring(0, 30),
-    keyFirst30: key.substring(0, 30),
-    keyLast30: key.substring(Math.max(0, key.length - 30)),
+    url: url,
+    key: key,
     // Show if it's the service key or anon key by checking the role claim
     // Service keys start with eyJ and contain "role":"service_role"
     // Anon keys contain "role":"anon"
