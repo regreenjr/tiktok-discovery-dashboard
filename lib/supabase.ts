@@ -14,8 +14,21 @@ function stripQuotes(value: string): string {
 
 export function getSupabase(): SupabaseClient {
   if (!cachedClient) {
-    const url = stripQuotes(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '');
-    const key = stripQuotes(process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
+    const rawUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const rawKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+    const url = stripQuotes(rawUrl);
+    const key = stripQuotes(rawKey);
+
+    // Debug logging
+    console.log('Supabase init:', {
+      urlRaw: rawUrl?.substring(0, 30),
+      urlStripped: url?.substring(0, 30),
+      keyRaw: rawKey?.substring(0, 30),
+      keyStripped: key?.substring(0, 30),
+      hadQuotesUrl: rawUrl !== url,
+      hadQuotesKey: rawKey !== key,
+    });
 
     if (!url || !key) {
       throw new Error('Supabase configuration is missing');
