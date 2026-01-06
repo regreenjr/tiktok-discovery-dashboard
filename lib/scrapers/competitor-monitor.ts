@@ -8,13 +8,14 @@
 import { ApifyClient } from 'apify-client';
 import { supabase, logExecution } from './db.js';
 import type { CompetitorAccount, CompetitorVideo, ApifyTikTokVideo } from './types.js';
+import convert from 'heic-convert';
 import 'dotenv/config';
 
 const apify = new ApifyClient({ token: process.env.APIFY_TOKEN });
 const MIN_VIEWS = 1_000;
 
 /**
- * Download image from TikTok and upload to Supabase Storage
+ * Download image from TikTok, convert to JPEG if needed, and upload to Supabase Storage
  */
 async function downloadAndUploadImage(imageUrl: string, videoId: string, index: number): Promise<string | null> {
   try {
@@ -26,13 +27,28 @@ async function downloadAndUploadImage(imageUrl: string, videoId: string, index: 
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const inputBuffer = Buffer.from(arrayBuffer);
+
+    let uploadBuffer = inputBuffer;
+
+    // Try to convert if it's HEIF/HEVC format
+    try {
+      const jpegBuffer = await convert({
+        buffer: inputBuffer,
+        format: 'JPEG',
+        quality: 0.85
+      });
+      uploadBuffer = Buffer.from(jpegBuffer);
+    } catch (conversionError) {
+      // If conversion fails, image might already be JPEG/PNG - upload as-is
+      console.log(`  Skipping conversion for image ${index} (already in browser-compatible format)`);
+    }
 
     // Upload to Supabase Storage
     const fileName = `${videoId}_${index}.jpg`;
     const { data, error } = await supabase.storage
       .from('tiktok-images')
-      .upload(fileName, buffer, {
+      .upload(fileName, uploadBuffer, {
         contentType: 'image/jpeg',
         upsert: true,
       });

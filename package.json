@@ -1,5 +1,5 @@
 {
-  "name": "tiktok-dashboard",
+  "name": "tiktok-discovery-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,9 +13,11 @@
     "@supabase/supabase-js": "^2.89.0",
     "apify-client": "^2.21.0",
     "dotenv": "^17.2.3",
+    "heic-convert": "^2.1.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
