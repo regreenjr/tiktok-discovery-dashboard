@@ -162,12 +162,12 @@ async function main() {
 
     console.log(`${videos.length} videos passed filters`);
 
-    // 6. Upsert to database (skip duplicates)
+    // 6. Upsert to database (update existing records with new images)
     let inserted = 0;
     for (const video of videos) {
       const { error: insertError } = await supabase
         .from('competitor_videos')
-        .upsert(video, { onConflict: 'video_id', ignoreDuplicates: true });
+        .upsert(video, { onConflict: 'video_id' });
 
       if (!insertError) inserted++;
     }
