@@ -13,6 +13,47 @@ import 'dotenv/config';
 const apify = new ApifyClient({ token: process.env.APIFY_TOKEN });
 const MIN_VIEWS = 1_000;
 
+/**
+ * Download image from TikTok and upload to Supabase Storage
+ */
+async function downloadAndUploadImage(imageUrl: string, videoId: string, index: number): Promise<string | null> {
+  try {
+    // Download image from TikTok
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch image: ${response.statusText}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Supabase Storage
+    const fileName = `${videoId}_${index}.jpg`;
+    const { data, error } = await supabase.storage
+      .from('tiktok-images')
+      .upload(fileName, buffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error(`Supabase upload error:`, error);
+      return null;
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('tiktok-images')
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error(`Error downloading/uploading image:`, error);
+    return null;
+  }
+}
+
 async function main() {
   console.log('🔍 Starting competitor monitor...');
   await logExecution('competitor_monitor', 'started');
@@ -53,38 +94,71 @@ async function main() {
     console.log(`Got ${realVideos.length} videos from Apify`);
 
     // 5. Transform and filter videos
-    const videos: CompetitorVideo[] = (realVideos as ApifyTikTokVideo[])
-      .filter(video => {
-        const views = video.views || 0;
-        return views >= MIN_VIEWS && video.id;
-      })
-      .map(video => {
-        const handle = video.channel?.username || '';
-        const views = video.views || 0;
-        const likes = video.likes || 0;
-        const comments = video.comments || 0;
-        const shares = video.shares || 0;
-        const hashtags = video.hashtags || [];
+    const filteredVideos = (realVideos as ApifyTikTokVideo[]).filter(video => {
+      const views = video.views || 0;
+      return views >= MIN_VIEWS && video.id;
+    });
 
-        return {
-          account_id: handleToId[handle.toLowerCase()] || null,
-          account_handle: handle,
-          video_id: video.id,
-          video_url: video.postPage || `https://www.tiktok.com/@${handle}/video/${video.id}`,
-          caption: video.title || '',
-          hashtags: hashtags.filter(tag => tag).map(tag => tag.toLowerCase()),
-          sound_id: video.song?.id?.toString() || null,
-          sound_name: video.song?.title || null,
-          duration_seconds: video.video?.duration || null,
-          views,
-          likes,
-          comments,
-          shares,
-          engagement_rate: views > 0 ? (likes + comments + shares) / views : 0,
-          discovered_at: new Date().toISOString(),
-          analyzed: false,
-        };
+    console.log(`Processing ${filteredVideos.length} videos...`);
+
+    const videos: CompetitorVideo[] = [];
+    for (const video of filteredVideos) {
+      const handle = video.channel?.username || '';
+      const views = video.views || 0;
+      const likes = video.likes || 0;
+      const comments = video.comments || 0;
+      const shares = video.shares || 0;
+      const hashtags = video.hashtags || [];
+
+      // Detect post type (slideshow vs video)
+      const isSlideshow = !!(video.imagePost || video.images);
+      const postType = isSlideshow ? 'slideshow' : 'video';
+
+      // Extract and upload slideshow images
+      let uploadedImages: string[] = [];
+      if (isSlideshow) {
+        const rawImages = video.imagePost?.images || video.images || [];
+        const imageUrls = rawImages.map((img: any) => {
+          if (typeof img === 'string') return img;
+          return img.imageURL || img.url || img.imageUrl || null;
+        }).filter((url: string | null) => url !== null);
+
+        if (imageUrls.length > 0) {
+          console.log(`📸 Downloading ${imageUrls.length} images for slideshow ${video.id}...`);
+
+          for (let i = 0; i < imageUrls.length; i++) {
+            const url = imageUrls[i];
+            const supabaseUrl = await downloadAndUploadImage(url, video.id, i);
+            if (supabaseUrl) {
+              uploadedImages.push(supabaseUrl);
+            }
+          }
+
+          console.log(`✅ Uploaded ${uploadedImages.length}/${imageUrls.length} images for ${video.id}`);
+        }
+      }
+
+      videos.push({
+        account_id: handleToId[handle.toLowerCase()] || null,
+        account_handle: handle,
+        video_id: video.id,
+        video_url: video.postPage || `https://www.tiktok.com/@${handle}/video/${video.id}`,
+        caption: video.title || '',
+        hashtags: hashtags.filter(tag => tag).map(tag => tag.toLowerCase()),
+        sound_id: video.song?.id?.toString() || null,
+        sound_name: video.song?.title || null,
+        duration_seconds: video.video?.duration || null,
+        post_type: postType,
+        images: uploadedImages.length > 0 ? uploadedImages : null,
+        views,
+        likes,
+        comments,
+        shares,
+        engagement_rate: views > 0 ? (likes + comments + shares) / views : 0,
+        discovered_at: new Date().toISOString(),
+        analyzed: false,
       });
+    }
 
     console.log(`${videos.length} videos passed filters`);
 
