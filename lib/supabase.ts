@@ -1,32 +1,10 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-let supabaseInstance: SupabaseClient | null = null;
-
-/**
- * Get Supabase client instance (lazy initialization)
- * This ensures the client is only created when actually needed,
- * not during Next.js build-time analysis
- */
-export function getSupabaseClient(): SupabaseClient {
-  if (!supabaseInstance) {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase URL and key are required');
-    }
-
-    supabaseInstance = createClient(supabaseUrl, supabaseKey);
-  }
-
-  return supabaseInstance;
-}
+const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const key = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 /**
- * For backwards compatibility with existing code
+ * Shared Supabase client for server-side use
+ * Uses empty strings as fallback during build to prevent errors
  */
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(target, prop) {
-    return getSupabaseClient()[prop as keyof SupabaseClient];
-  }
-});
+export const supabase = createClient(url, key);
