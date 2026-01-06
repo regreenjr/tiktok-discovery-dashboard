@@ -5,18 +5,25 @@ import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-
 import { useRouter, usePathname } from 'next/navigation';
 
 let supabaseClient: SupabaseClient | null = null;
+let configPromise: Promise<{supabaseUrl: string; supabaseAnonKey: string}> | null = null;
 
-function getSupabaseClient() {
+async function getConfig() {
+  if (!configPromise) {
+    configPromise = fetch('/api/config').then(r => r.json());
+  }
+  return configPromise;
+}
+
+async function getSupabaseClient() {
   if (!supabaseClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const config = await getConfig();
 
-    if (!url || !key) {
-      console.error('Missing Supabase environment variables:', { url: !!url, key: !!key });
-      throw new Error('Supabase configuration is missing. Please check environment variables.');
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      console.error('Missing Supabase configuration from API');
+      throw new Error('Supabase configuration is missing.');
     }
 
-    supabaseClient = createClient(url, key);
+    supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
   }
   return supabaseClient;
 }
@@ -45,40 +52,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
+    let subscription: any;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    getSupabaseClient().then(supabase => {
+      // Get initial session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
 
-      // Redirect to login if not authenticated and not on login page
-      if (!session && pathname !== '/login') {
-        router.push('/login');
-      }
+        // Redirect to login if not authenticated and not on login page
+        if (!session && pathname !== '/login') {
+          router.push('/login');
+        }
+      });
+
+      // Listen for auth changes
+      const {
+        data: { subscription: sub },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        // Redirect based on auth state
+        if (!session && pathname !== '/login') {
+          router.push('/login');
+        } else if (session && pathname === '/login') {
+          router.push('/');
+        }
+      });
+
+      subscription = sub;
     });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      // Redirect based on auth state
-      if (!session && pathname !== '/login') {
-        router.push('/login');
-      } else if (session && pathname === '/login') {
-        router.push('/');
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, [router, pathname]);
 
   const signOut = async () => {
-    const supabase = getSupabaseClient();
+    const supabase = await getSupabaseClient();
     await supabase.auth.signOut();
     router.push('/login');
   };

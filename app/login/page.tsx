@@ -5,18 +5,25 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseClient: SupabaseClient | null = null;
+let configPromise: Promise<{supabaseUrl: string; supabaseAnonKey: string}> | null = null;
 
-function getSupabaseClient() {
+async function getConfig() {
+  if (!configPromise) {
+    configPromise = fetch('/api/config').then(r => r.json());
+  }
+  return configPromise;
+}
+
+async function getSupabaseClient() {
   if (!supabaseClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const config = await getConfig();
 
-    if (!url || !key) {
-      console.error('Missing Supabase environment variables:', { url: !!url, key: !!key });
-      throw new Error('Supabase configuration is missing. Please check environment variables.');
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      console.error('Missing Supabase configuration from API');
+      throw new Error('Supabase configuration is missing.');
     }
 
-    supabaseClient = createClient(url, key);
+    supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
   }
   return supabaseClient;
 }
@@ -36,16 +43,17 @@ function LoginContent() {
     }
 
     // Check if already logged in
-    const supabase = getSupabaseClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push('/');
-      }
+    getSupabaseClient().then(supabase => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          router.push('/');
+        }
+      });
     });
   }, [router, searchParams]);
 
   const signInWithGoogle = async () => {
-    const supabase = getSupabaseClient();
+    const supabase = await getSupabaseClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
