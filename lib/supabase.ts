@@ -15,9 +15,7 @@ function stripQuotes(value: string): string {
 export function getSupabase(): SupabaseClient {
   if (!cachedClient) {
     const rawUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    // TEMPORARY FIX: Use anon key since service key is invalid
-    // TODO: Investigate why service role key doesn't work
-    const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+    const rawKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
     const url = stripQuotes(rawUrl);
     const key = stripQuotes(rawKey);
