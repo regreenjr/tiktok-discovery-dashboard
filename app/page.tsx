@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import ContentPatterns from '@/components/ContentPatterns';
 import HashtagInsights from '@/components/HashtagInsights';
 import FilterBar, { FilterOptions } from '@/components/FilterBar';
+import DashboardGrid from '@/components/dashboard/DashboardGrid';
 
 interface Video {
   video_id: string;
@@ -199,6 +200,14 @@ export default function Dashboard() {
             <div className="text-gray-400 text-sm mb-2">Trending Sounds</div>
             <div className="text-3xl font-bold">{data?.stats?.totalSounds || 0}</div>
           </div>
+        </div>
+
+        {/* NEW: Widget-Based Dashboard (Layer 1: 5-Second Insights) */}
+        <div className="mb-12">
+          <DashboardGrid
+            videos={applyFilters(data?.videos || [])}
+            sounds={data?.sounds || []}
+          />
         </div>
 
         {/* Week 2: AI Content Pattern Analysis */}

@@ -31,6 +31,8 @@ export default function ManagePage() {
 
   // Account form state
   const [newAccountHandle, setNewAccountHandle] = useState('');
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkHandles, setBulkHandles] = useState('');
 
   useEffect(() => {
     loadBrands();
@@ -84,16 +86,87 @@ export default function ManagePage() {
 
   const createAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAccountHandle || !selectedBrand) return;
+    if (!selectedBrand) return;
 
-    await fetch('/api/accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ handle: newAccountHandle, brand_id: selectedBrand })
-    });
+    try {
+      if (bulkMode) {
+        // Bulk upload mode
+        if (!bulkHandles.trim()) {
+          alert('Please paste TikTok handles (one per line)');
+          return;
+        }
 
-    setNewAccountHandle('');
-    loadAccounts(selectedBrand);
+        // Parse handles - one per line, clean whitespace and @ symbols
+        const handles = bulkHandles
+          .split('\n')
+          .map(line => line.trim().replace(/^@/, ''))
+          .filter(handle => handle.length > 0);
+
+        console.log('[Frontend] Parsed handles from textarea:', handles);
+
+        if (handles.length === 0) {
+          alert('Please enter at least one TikTok handle');
+          return;
+        }
+
+        console.log('[Frontend] Sending bulk request with', handles.length, 'handles');
+
+        // Send bulk request
+        const res = await fetch('/api/accounts/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handles, brand_id: selectedBrand })
+        });
+
+        console.log('[Frontend] Response status:', res.status);
+        console.log('[Frontend] Response ok:', res.ok);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.log('[Frontend] Error response text:', errorText);
+          alert(`Server error (${res.status}): ${errorText}`);
+          return;
+        }
+
+        const result = await res.json();
+        console.log('[Frontend] Response data:', result);
+
+        if (result.success) {
+          const message = result.created > 0
+            ? `Successfully added ${result.created} account${result.created !== 1 ? 's' : ''}${result.duplicates > 0 ? ` (${result.duplicates} duplicates skipped)` : ''}`
+            : result.message || `All ${result.duplicates} handles already exist in the system`;
+
+          alert(message);
+          setBulkHandles('');
+          loadAccounts(selectedBrand);
+        } else {
+          alert(`Error: ${result.error || 'Unknown error occurred'}`);
+        }
+      } else {
+        // Single upload mode
+        if (!newAccountHandle) return;
+
+        const cleanHandle = newAccountHandle.trim().replace(/^@/, '');
+
+        const res = await fetch('/api/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: cleanHandle, brand_id: selectedBrand })
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          alert(`Error: ${error.error || 'Failed to add account'}`);
+          return;
+        }
+
+        setNewAccountHandle('');
+        loadAccounts(selectedBrand);
+      }
+    } catch (error: any) {
+      console.error('[Frontend] Exception creating account:', error);
+      alert(`Error: ${error.message || 'An unexpected error occurred'}`);
+    }
   };
 
   const toggleAccount = async (account: Account) => {
@@ -232,18 +305,66 @@ export default function ManagePage() {
               <>
                 {/* Create Account Form */}
                 <form onSubmit={createAccount} className="bg-gray-800 rounded-lg p-4 mb-4">
-                  <input
-                    type="text"
-                    placeholder="TikTok handle (e.g., cleanmyphone)"
-                    value={newAccountHandle}
-                    onChange={(e) => setNewAccountHandle(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 rounded mb-2"
-                  />
+                  {/* Mode Toggle */}
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setBulkMode(false)}
+                      className={`flex-1 px-3 py-2 rounded text-sm ${
+                        !bulkMode
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      Single
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkMode(true)}
+                      className={`flex-1 px-3 py-2 rounded text-sm ${
+                        bulkMode
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      Bulk Upload
+                    </button>
+                  </div>
+
+                  {/* Input Fields */}
+                  {bulkMode ? (
+                    <>
+                      <div className="mb-2">
+                        <label className="text-xs text-gray-400 mb-1 block">
+                          Enter TikTok handles (one per line)
+                        </label>
+                        <textarea
+                          placeholder={'cleanmyphone\nkrispcalls\ntechburner\nmrbeast\ncharlidamelio\n...\n(paste as many as you want)'}
+                          value={bulkHandles}
+                          onChange={(e) => setBulkHandles(e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 rounded font-mono text-sm min-h-[300px]"
+                          rows={15}
+                        />
+                      </div>
+                      <div className="text-xs text-gray-400 mb-2">
+                        💡 Tip: Paste handles with or without @ symbol, one per line
+                      </div>
+                    </>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="TikTok handle (e.g., cleanmyphone)"
+                      value={newAccountHandle}
+                      onChange={(e) => setNewAccountHandle(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-700 rounded mb-2"
+                    />
+                  )}
+
                   <button
                     type="submit"
                     className="w-full px-4 py-2 bg-green-600 rounded hover:bg-green-700"
                   >
-                    Add Account
+                    {bulkMode ? 'Add Accounts' : 'Add Account'}
                   </button>
                 </form>
 
