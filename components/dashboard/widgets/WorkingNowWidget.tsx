@@ -29,6 +29,8 @@ interface WorkingNowWidgetProps {
 
 export default function WorkingNowWidget({ videos, hashtags = [], sounds = [] }: WorkingNowWidgetProps) {
   const topFormat = useMemo(() => {
+    if (!videos || videos.length === 0) return null;
+
     const formats = groupByMetric(videos, 'content_format');
     if (formats.length === 0) return null;
 

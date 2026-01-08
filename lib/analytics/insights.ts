@@ -21,6 +21,11 @@ export function calculateTopInsight(videos: Video[]): InsightData | null {
     ...emotionGroups.map(g => ({ ...g, category: 'emotional_trigger' })),
   ];
 
+  // If no groups found, return null
+  if (allGroups.length === 0) {
+    return null;
+  }
+
   const topGroup = allGroups.reduce((best, current) => {
     return current.avgVirality > best.avgVirality ? current : best;
   });
