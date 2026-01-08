@@ -7,6 +7,7 @@ import ContentPatterns from '@/components/ContentPatterns';
 import HashtagInsights from '@/components/HashtagInsights';
 import FilterBar, { FilterOptions } from '@/components/FilterBar';
 import DashboardGrid from '@/components/dashboard/DashboardGrid';
+import ScrapeStatus from '@/components/ScrapeStatus';
 
 interface Video {
   video_id: string;
@@ -144,7 +145,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <h1 className="text-4xl font-bold">🎵 TikTok Discovery Dashboard</h1>
           <div className="flex gap-4 items-center">
             <div className="text-gray-400 text-sm">
@@ -185,6 +186,13 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        {/* Scrape Status */}
+        {selectedBrand && selectedBrand !== 'all' && (
+          <div className="mb-4">
+            <ScrapeStatus brandId={selectedBrand} />
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-6 mb-12">
