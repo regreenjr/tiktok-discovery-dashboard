@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = getSupabase();
   const body = await request.json();
-  const { handle, brand_id, platform = 'tiktok', is_active = true } = body;
+  const { handle, brand_id, is_active = true } = body;
 
   if (!handle || !brand_id) {
     return NextResponse.json(
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('competitor_accounts')
-    .insert({ handle, brand_id, platform, is_active })
+    .insert({ handle, brand_id, is_active })
     .select()
     .single();
 

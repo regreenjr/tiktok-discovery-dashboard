@@ -7,12 +7,11 @@ export async function POST(request: Request) {
 
   const supabase = getSupabase();
   const body = await request.json();
-  const { handles, brand_id, platform = 'tiktok', is_active = true } = body;
+  const { handles, brand_id, is_active = true } = body;
 
   console.log('[Bulk API] Received request:', {
     handleCount: handles?.length,
     brand_id,
-    platform,
     is_active
   });
 
@@ -59,7 +58,6 @@ export async function POST(request: Request) {
       .map((handle) => ({
         handle,
         brand_id,
-        platform,
         is_active,
       }));
 
