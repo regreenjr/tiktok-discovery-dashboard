@@ -187,13 +187,40 @@ export default function ManagePage() {
   };
 
   const runScraper = async (scraper: string) => {
-    const res = await fetch('/api/run-scraper', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scraper, brandId: selectedBrand })
-    });
-    const data = await res.json();
-    alert(data.message || data.note);
+    console.log('[Manage] Running scraper:', scraper, 'for brand:', selectedBrand);
+
+    if (!selectedBrand) {
+      alert('Please select a brand first');
+      return;
+    }
+
+    try {
+      console.log('[Manage] Sending request to /api/run-scraper...');
+      const res = await fetch('/api/run-scraper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scraper, brandId: selectedBrand })
+      });
+
+      console.log('[Manage] Response status:', res.status);
+      const data = await res.json();
+      console.log('[Manage] Response data:', data);
+
+      if (!res.ok) {
+        alert(`Error: ${data.error || 'Failed to start scraper'}`);
+        return;
+      }
+
+      if (data.error) {
+        alert(`Error: ${data.error}`);
+        return;
+      }
+
+      alert(data.message || `Scraper started successfully! Processing ${data.accountCount || 0} accounts.`);
+    } catch (error: any) {
+      console.error('Scraper error:', error);
+      alert(`Failed to start scraper: ${error.message}`);
+    }
   };
 
   if (loading || authLoading) {
