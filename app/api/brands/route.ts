@@ -51,7 +51,39 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Brand ID is required' }, { status: 400 });
   }
 
-  // First delete all associated accounts (and their videos due to CASCADE)
+  // Step 1: Get all accounts for this brand
+  console.log('[API brands] Finding accounts for brand:', id);
+  const { data: accounts, error: fetchError } = await supabase
+    .from('competitor_accounts')
+    .select('id')
+    .eq('brand_id', id);
+
+  if (fetchError) {
+    console.error('[API brands] Failed to fetch accounts:', fetchError);
+    return NextResponse.json({ error: `Failed to fetch accounts: ${fetchError.message}` }, { status: 500 });
+  }
+
+  const accountIds = accounts?.map(acc => acc.id) || [];
+  console.log('[API brands] Found', accountIds.length, 'accounts');
+
+  // Step 2: Delete all videos for these accounts
+  if (accountIds.length > 0) {
+    console.log('[API brands] Deleting videos for accounts:', accountIds);
+    const { error: videosError, data: deletedVideos } = await supabase
+      .from('videos')
+      .delete()
+      .in('account_id', accountIds)
+      .select();
+
+    if (videosError) {
+      console.error('[API brands] Failed to delete videos:', videosError);
+      return NextResponse.json({ error: `Failed to delete videos: ${videosError.message}` }, { status: 500 });
+    }
+
+    console.log('[API brands] Deleted', deletedVideos?.length || 0, 'videos');
+  }
+
+  // Step 3: Delete all accounts for this brand
   console.log('[API brands] Deleting accounts for brand:', id);
   const { error: accountsError, data: deletedAccounts } = await supabase
     .from('competitor_accounts')
@@ -66,7 +98,7 @@ export async function DELETE(request: Request) {
 
   console.log('[API brands] Deleted', deletedAccounts?.length || 0, 'accounts');
 
-  // Then delete the brand
+  // Step 4: Delete the brand
   console.log('[API brands] Deleting brand:', id);
   const { error: brandError, data: deletedBrand } = await supabase
     .from('brands')
