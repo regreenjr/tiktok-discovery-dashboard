@@ -55,10 +55,32 @@ export default function ManagePage() {
   };
 
   const loadAccounts = async (brandId?: string) => {
-    const url = brandId ? `/api/accounts?brand_id=${brandId}` : '/api/accounts';
-    const res = await fetch(url);
-    const data = await res.json();
-    setAccounts(data.data || data);
+    try {
+      const url = brandId ? `/api/accounts?brand_id=${brandId}` : '/api/accounts';
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('[Frontend] Failed to load accounts:', data.error);
+        alert(`Failed to load accounts: ${data.error || 'Unknown error'}`);
+        setAccounts([]);
+        return;
+      }
+
+      // Handle both response formats: { success: true, data: [...] } or direct array
+      if (data.data) {
+        setAccounts(data.data);
+      } else if (Array.isArray(data)) {
+        setAccounts(data);
+      } else {
+        console.error('[Frontend] Unexpected response format:', data);
+        setAccounts([]);
+      }
+    } catch (error: any) {
+      console.error('[Frontend] Exception loading accounts:', error);
+      alert(`Error loading accounts: ${error.message || 'Unknown error'}`);
+      setAccounts([]);
+    }
   };
 
   const createBrand = async (e: React.FormEvent) => {
@@ -79,9 +101,22 @@ export default function ManagePage() {
   const deleteBrand = async (id: string) => {
     if (!confirm('Delete this brand? This will also delete all associated accounts.')) return;
 
-    await fetch(`/api/brands?id=${id}`, { method: 'DELETE' });
-    loadBrands();
-    loadAccounts();
+    try {
+      const res = await fetch(`/api/brands?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(`Failed to delete brand: ${data.error || 'Unknown error'}`);
+        console.error('[Frontend] Delete brand error:', data);
+        return;
+      }
+
+      loadBrands();
+      loadAccounts();
+    } catch (error: any) {
+      console.error('[Frontend] Exception deleting brand:', error);
+      alert(`Error: ${error.message || 'Failed to delete brand'}`);
+    }
   };
 
   const createAccount = async (e: React.FormEvent) => {
