@@ -1,127 +1,121 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react'
+import { getTimeAgo } from '@/lib/analytics/insights'
+import { ScrapeStatusType, ScrapeStatusInfo } from '@/lib/analytics/types'
 
 interface ScrapeStatusProps {
-  brandId: string;
+  brandId: string
 }
 
-interface ScrapeJob {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  started_at: string;
-  accounts_processed: number;
-}
-
-interface StatusData {
-  lastScraped: string | null;
-  currentJob: ScrapeJob | null;
-  isRunning: boolean;
-}
-
-export default function ScrapeStatus({ brandId }: ScrapeStatusProps) {
-  const [status, setStatus] = useState<StatusData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadStatus = async () => {
-    try {
-      const res = await fetch(`/api/scrape-status?brandId=${brandId}`);
-      const data = await res.json();
-      setStatus(data);
-    } catch (error) {
-      console.error('Error loading scrape status:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+export function ScrapeStatus({ brandId }: ScrapeStatusProps) {
+  const [status, setStatus] = useState<ScrapeStatusInfo | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadStatus();
+    fetchStatus()
+    // Poll for status updates every 10 seconds
+    const interval = setInterval(fetchStatus, 10000)
+    return () => clearInterval(interval)
+  }, [brandId])
 
-    // Poll for updates every 10 seconds if scraping
-    const interval = setInterval(() => {
-      if (status?.isRunning) {
-        loadStatus();
+  const fetchStatus = async () => {
+    try {
+      const response = await fetch(`/api/scrape-status?brandId=${brandId}`)
+      const data = await response.json()
+
+      if (data.data) {
+        const statusInfo = determineStatus(data.data)
+        setStatus(statusInfo)
       }
-    }, 10000);
+    } catch (error) {
+      console.error('[ScrapeStatus] Error fetching status:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    return () => clearInterval(interval);
-  }, [brandId, status?.isRunning]);
+  const determineStatus = (data: {
+    lastScrapedAt: string | null
+    isRunning: boolean
+  }): ScrapeStatusInfo => {
+    if (data.isRunning) {
+      return {
+        status: 'scraping',
+        lastScrapedAt: data.lastScrapedAt,
+        isRunning: true,
+        timeAgo: null,
+      }
+    }
+
+    if (!data.lastScrapedAt) {
+      return {
+        status: 'never',
+        lastScrapedAt: null,
+        isRunning: false,
+        timeAgo: null,
+      }
+    }
+
+    const lastScraped = new Date(data.lastScrapedAt)
+    const now = new Date()
+    const diffHours = (now.getTime() - lastScraped.getTime()) / (1000 * 60 * 60)
+
+    let statusType: ScrapeStatusType
+    if (diffHours < 1) {
+      statusType = 'fresh'
+    } else if (diffHours < 24) {
+      statusType = 'recent'
+    } else {
+      statusType = 'stale'
+    }
+
+    return {
+      status: statusType,
+      lastScrapedAt: data.lastScrapedAt,
+      isRunning: false,
+      timeAgo: getTimeAgo(data.lastScrapedAt),
+    }
+  }
 
   if (loading || !status) {
     return (
-      <div className="text-xs text-gray-500">
-        Loading status...
-      </div>
-    );
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        Loading...
+      </span>
+    )
   }
 
-  const getTimeAgo = (timestamp: string | null) => {
-    if (!timestamp) return 'Never';
+  const statusStyles: Record<ScrapeStatusType, string> = {
+    fresh: 'bg-green-100 text-green-800 border-green-200',
+    recent: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    stale: 'bg-red-100 text-red-800 border-red-200',
+    scraping: 'bg-blue-100 text-blue-800 border-blue-200',
+    never: 'bg-gray-100 text-gray-600 border-gray-200',
+  }
 
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
-
-  const getStatusBadge = () => {
-    if (status.isRunning) {
-      return (
-        <span className="px-2 py-1 bg-blue-900/50 border border-blue-600 rounded-full text-xs text-blue-300 flex items-center gap-1">
-          <span className="animate-pulse">●</span>
-          Scraping...
-        </span>
-      );
-    }
-
-    if (!status.lastScraped) {
-      return (
-        <span className="px-2 py-1 bg-gray-700 border border-gray-600 rounded-full text-xs text-gray-400">
-          No data
-        </span>
-      );
-    }
-
-    const age = new Date().getTime() - new Date(status.lastScraped).getTime();
-    const hoursOld = age / (1000 * 60 * 60);
-
-    if (hoursOld < 1) {
-      return (
-        <span className="px-2 py-1 bg-green-900/50 border border-green-600 rounded-full text-xs text-green-300">
-          ✓ Fresh
-        </span>
-      );
-    }
-
-    if (hoursOld < 24) {
-      return (
-        <span className="px-2 py-1 bg-yellow-900/50 border border-yellow-600 rounded-full text-xs text-yellow-300">
-          Recent
-        </span>
-      );
-    }
-
-    return (
-      <span className="px-2 py-1 bg-red-900/50 border border-red-600 rounded-full text-xs text-red-300">
-        Stale
-      </span>
-    );
-  };
+  const statusLabels: Record<ScrapeStatusType, string> = {
+    fresh: 'Fresh',
+    recent: 'Recent',
+    stale: 'Stale',
+    scraping: 'Scraping',
+    never: 'Never scraped',
+  }
 
   return (
-    <div className="flex items-center gap-2 text-xs">
-      {getStatusBadge()}
-      <span className="text-gray-400">
-        Last updated: {getTimeAgo(status.lastScraped)}
-      </span>
-    </div>
-  );
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        statusStyles[status.status]
+      }`}
+      title={status.lastScrapedAt ? `Last scraped: ${new Date(status.lastScrapedAt).toLocaleString()}` : 'Never scraped'}
+    >
+      {status.status === 'scraping' && (
+        <span className="mr-1 animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full"></span>
+      )}
+      {statusLabels[status.status]}
+      {status.timeAgo && status.status !== 'scraping' && (
+        <span className="ml-1 opacity-75">({status.timeAgo})</span>
+      )}
+    </span>
+  )
 }

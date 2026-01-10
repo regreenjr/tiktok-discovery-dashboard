@@ -1,72 +1,75 @@
-import { NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
 
-// GET - Get scrape status for a brand or all brands
-export async function GET(request: Request) {
-  const supabase = getSupabase();
-  const { searchParams } = new URL(request.url);
-  const brandId = searchParams.get('brandId');
-
+// GET /api/scrape-status - Get scrape status (by brandId or all)
+export async function GET(request: NextRequest) {
   try {
-    if (brandId && brandId !== 'all') {
-      // Get status for specific brand
-      const { data: brand, error: brandError } = await supabase
+    const searchParams = request.nextUrl.searchParams
+    const brandId = searchParams.get('brandId')
+
+    const supabase = getSupabase()
+
+    if (brandId) {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(brandId)) {
+        return NextResponse.json(
+          { error: 'Invalid brand ID format' },
+          { status: 400 }
+        )
+      }
+
+      // Get brand info
+      const { data: brand } = await supabase
         .from('brands')
-        .select('id, name, last_scraped_at')
+        .select('last_scraped_at')
         .eq('id', brandId)
-        .single();
+        .maybeSingle()
 
-      if (brandError) throw brandError;
-
-      // Get latest scrape job for this brand
-      const { data: latestJob, error: jobError } = await supabase
+      // Check for running jobs
+      const { data: runningJob } = await supabase
         .from('scrape_jobs')
-        .select('*')
+        .select('id, status')
         .eq('brand_id', brandId)
-        .order('started_at', { ascending: false })
+        .in('status', ['pending', 'running'])
+        .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
-
-      if (jobError) throw jobError;
+        .maybeSingle()
 
       return NextResponse.json({
-        brand: brand.name,
-        lastScraped: brand.last_scraped_at,
-        currentJob: latestJob,
-        isRunning: latestJob?.status === 'running' || latestJob?.status === 'pending',
-      });
-    } else {
-      // Get status for all brands
-      const { data: brands, error: brandsError } = await supabase
-        .from('brands')
-        .select('id, name, last_scraped_at')
-        .order('name');
-
-      if (brandsError) throw brandsError;
-
-      // Get running jobs
-      const { data: runningJobs, error: jobsError } = await supabase
-        .from('scrape_jobs')
-        .select('*')
-        .in('status', ['running', 'pending'])
-        .order('started_at', { ascending: false });
-
-      if (jobsError) throw jobsError;
-
-      const brandsWithStatus = brands.map((brand) => ({
-        id: brand.id,
-        name: brand.name,
-        lastScraped: brand.last_scraped_at,
-        isRunning: runningJobs.some((job) => job.brand_id === brand.id),
-      }));
-
-      return NextResponse.json({
-        brands: brandsWithStatus,
-        runningJobs: runningJobs.length,
-      });
+        success: true,
+        data: {
+          brandId,
+          lastScrapedAt: brand?.last_scraped_at || null,
+          isRunning: !!runningJob,
+          runningJobId: runningJob?.id || null,
+        },
+      })
     }
-  } catch (error: any) {
-    console.error('Error fetching scrape status:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Get all running jobs if no brandId specified
+    const { data: runningJobs, error } = await supabase
+      .from('scrape_jobs')
+      .select('id, brand_id, status, started_at')
+      .in('status', ['pending', 'running'])
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[API scrape-status] Error fetching jobs:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        runningJobs: runningJobs || [],
+      },
+    })
+  } catch (error) {
+    console.error('[API scrape-status] Unexpected error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

@@ -31,7 +31,10 @@ export function generateTimeSeriesData(
     if (dayVideos.length === 0) {
       dataPoints.push({
         date: dateStr,
+        virality: 0,
         avgVirality: 0,
+        engagement: 0,
+        views: 0,
         breakdown: {},
       });
       continue;
@@ -60,7 +63,10 @@ export function generateTimeSeriesData(
 
     dataPoints.push({
       date: dateStr,
+      virality: avgVirality,
       avgVirality,
+      engagement: 0, // TODO: Calculate from data
+      views: dayVideos.reduce((sum, v) => sum + v.views, 0) / dayVideos.length,
       breakdown,
     });
   }
@@ -81,7 +87,7 @@ export function calculateMovingAverage(
     const windowData = data.slice(start, end);
 
     const avgVirality =
-      windowData.reduce((sum, d) => sum + d.avgVirality, 0) / windowData.length;
+      windowData.reduce((sum, d) => sum + (d.avgVirality || 0), 0) / windowData.length;
 
     return {
       ...point,
@@ -101,8 +107,8 @@ export function detectTrendDirection(
   const recent = data.slice(-7); // Last week
   const older = data.slice(0, 7); // First week
 
-  const recentAvg = recent.reduce((sum, d) => sum + d.avgVirality, 0) / recent.length;
-  const olderAvg = older.reduce((sum, d) => sum + d.avgVirality, 0) / older.length;
+  const recentAvg = recent.reduce((sum, d) => sum + (d.avgVirality || 0), 0) / recent.length;
+  const olderAvg = older.reduce((sum, d) => sum + (d.avgVirality || 0), 0) / older.length;
 
   const change = ((recentAvg - olderAvg) / olderAvg) * 100;
 

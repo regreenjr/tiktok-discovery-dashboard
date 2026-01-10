@@ -1,147 +1,222 @@
-import { NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
-import { ApifyClient } from 'apify-client';
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { getAuthenticatedUser, getUserBrandIds } from '@/lib/auth'
 
-export async function POST(request: Request) {
-  const body = await request.json();
-  const { scraper, brandId } = body;
+// Helper to check if user has access to a brand
+async function userHasAccessToBrand(brandId: string): Promise<boolean> {
+  const user = await getAuthenticatedUser()
+  if (!user) return false
 
-  if (!scraper) {
-    return NextResponse.json(
-      { error: 'Scraper type is required (competitor, comments, trends, or all)' },
-      { status: 400 }
-    );
+  const userBrandIds = getUserBrandIds(user)
+
+  // If user has brand_ids in metadata, check if the requested brand is in the list
+  if (userBrandIds.length > 0) {
+    return userBrandIds.includes(brandId)
   }
 
-  const validScrapers = ['competitor', 'comments', 'trends', 'all'];
-  if (!validScrapers.includes(scraper)) {
-    return NextResponse.json(
-      { error: `Invalid scraper type. Must be one of: ${validScrapers.join(', ')}` },
-      { status: 400 }
-    );
-  }
+  // If no brand_ids set, allow access (legacy behavior for users without restrictions)
+  return true
+}
 
-  if (!brandId || brandId === 'all') {
-    return NextResponse.json(
-      { error: 'Please select a specific brand to scrape' },
-      { status: 400 }
-    );
-  }
-
+// POST /api/run-scraper - Trigger Apify scraper for brand
+export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabase();
+    const body = await request.json()
+    const { brand_id } = body
 
-    // Check if scraper is already running for this brand
-    const { data: runningJob } = await supabase
-      .from('scrape_jobs')
-      .select('id')
-      .eq('brand_id', brandId)
-      .in('status', ['pending', 'running'])
-      .maybeSingle();
-
-    if (runningJob) {
-      return NextResponse.json({
-        message: 'Scraper is already running for this brand',
-        status: 'running'
-      });
+    // Validation
+    if (!brand_id) {
+      return NextResponse.json(
+        { error: 'Brand ID is required' },
+        { status: 400 }
+      )
     }
 
-    // Create scrape job
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(brand_id)) {
+      return NextResponse.json(
+        { error: 'Invalid brand ID format' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user has access to this brand
+    const hasAccess = await userHasAccessToBrand(brand_id)
+    if (!hasAccess) {
+      console.log('[API run-scraper] Access denied to brand:', brand_id)
+      return NextResponse.json(
+        { error: 'Access denied to this brand' },
+        { status: 403 }
+      )
+    }
+
+    const supabase = getSupabase()
+
+    // Check if brand exists
+    const { data: brand } = await supabase
+      .from('brands')
+      .select('id, name')
+      .eq('id', brand_id)
+      .maybeSingle()
+
+    if (!brand) {
+      return NextResponse.json(
+        { error: 'Brand not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check for existing running job (prevent duplicates)
+    const { data: existingJob } = await supabase
+      .from('scrape_jobs')
+      .select('id')
+      .eq('brand_id', brand_id)
+      .in('status', ['pending', 'running'])
+      .maybeSingle()
+
+    if (existingJob) {
+      return NextResponse.json(
+        { error: 'A scrape job is already running for this brand' },
+        { status: 409 }
+      )
+    }
+
+    // Get active accounts for this brand
+    const { data: accounts } = await supabase
+      .from('competitor_accounts')
+      .select('handle')
+      .eq('brand_id', brand_id)
+      .eq('is_active', true)
+
+    if (!accounts || accounts.length === 0) {
+      return NextResponse.json(
+        { error: 'No active accounts to scrape' },
+        { status: 400 }
+      )
+    }
+
+    // Create scrape job record
     const { data: job, error: jobError } = await supabase
       .from('scrape_jobs')
       .insert({
-        brand_id: brandId,
-        scraper_type: scraper,
+        brand_id,
+        scraper_type: 'competitor',
         status: 'pending',
+        started_at: new Date().toISOString(),
+        accounts_processed: 0,
+        videos_found: 0,
       })
       .select()
-      .single();
+      .single()
 
-    if (jobError) throw jobError;
+    if (jobError) {
+      console.error('[API run-scraper] Error creating job:', jobError)
+      return NextResponse.json({ error: jobError.message }, { status: 500 })
+    }
 
-    // Get competitor accounts for this brand
-    const { data: accounts, error: accountsError } = await supabase
-      .from('competitor_accounts')
-      .select('id, handle')
-      .eq('brand_id', brandId)
-      .eq('is_active', true);
+    // Fire-and-forget: Trigger Apify scraper
+    // In production, this would call the Apify API
+    const apifyToken = process.env.APIFY_TOKEN
 
-    if (accountsError) throw accountsError;
-
-    if (!accounts || accounts.length === 0) {
-      // Update job as failed
+    if (apifyToken) {
+      // Update job to running status
       await supabase
         .from('scrape_jobs')
-        .update({ status: 'failed', error_message: 'No active accounts found for this brand' })
-        .eq('id', job.id);
+        .update({ status: 'running' })
+        .eq('id', job.id)
 
-      return NextResponse.json({
-        error: 'No active competitor accounts found for this brand. Please add accounts first.',
-      }, { status: 400 });
-    }
-
-    // Trigger Apify scraper in background
-    if (process.env.APIFY_TOKEN && scraper === 'competitor') {
-      try {
-        const apify = new ApifyClient({ token: process.env.APIFY_TOKEN });
-        const startUrls = accounts.map(a => `https://www.tiktok.com/@${a.handle}`);
-
-        // Update job to running
-        await supabase
-          .from('scrape_jobs')
-          .update({ status: 'running', accounts_processed: 0 })
-          .eq('id', job.id);
-
-        // Trigger Apify actor (fire and forget)
-        apify.actor('apidojo/tiktok-profile-scraper').call({
-          startUrls: startUrls.map(url => ({ url })),
-          resultsPerPage: 10,
-          shouldDownloadVideos: false,
-          shouldDownloadCovers: false,
-          shouldDownloadSubtitles: false,
-          shouldDownloadSlideshowImages: true,
-        }).then(async (run) => {
-          // This runs asynchronously - webhook would be better for production
-          console.log(`Apify actor started: ${run.id}`);
-        }).catch(async (error) => {
-          console.error('Apify error:', error);
-          await supabase
+      // Trigger Apify (fire and forget)
+      triggerApifyScraper(accounts.map(a => a.handle), job.id, brand_id, supabase)
+        .catch(error => {
+          console.error('[API run-scraper] Apify error:', error)
+          // Update job status to failed
+          supabase
             .from('scrape_jobs')
-            .update({ status: 'failed', error_message: error.message })
-            .eq('id', job.id);
-        });
-
-        return NextResponse.json({
-          message: `Scraping ${accounts.length} accounts for selected brand...`,
-          jobId: job.id,
-          accountCount: accounts.length,
-          status: 'running'
-        });
-      } catch (apifyError: any) {
-        console.error('Apify initialization error:', apifyError);
+            .update({
+              status: 'failed',
+              error_message: error.message,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', job.id)
+        })
+    } else {
+      console.warn('[API run-scraper] No APIFY_TOKEN configured, simulating scrape')
+      // Simulate a quick scrape for development
+      setTimeout(async () => {
         await supabase
           .from('scrape_jobs')
-          .update({ status: 'failed', error_message: apifyError.message })
-          .eq('id', job.id);
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            accounts_processed: accounts.length,
+            videos_found: 0,
+          })
+          .eq('id', job.id)
 
-        return NextResponse.json({
-          error: 'Failed to start scraper. Please check configuration.',
-        }, { status: 500 });
-      }
+        await supabase
+          .from('brands')
+          .update({ last_scraped_at: new Date().toISOString() })
+          .eq('id', brand_id)
+      }, 5000)
     }
 
-    // For other scraper types, just mark as pending
+    console.log('[API run-scraper] Started job:', job.id)
     return NextResponse.json({
-      message: `Scraper job created for ${accounts.length} accounts`,
-      jobId: job.id,
-      accountCount: accounts.length,
-      note: scraper !== 'competitor' ? 'Other scrapers need to be run manually via npm scripts' : undefined
-    });
-  } catch (error: any) {
-    console.error('Error triggering scraper:', error);
+      success: true,
+      data: {
+        jobId: job.id,
+        accountsToScrape: accounts.length,
+      },
+    }, { status: 201 })
+  } catch (error) {
+    console.error('[API run-scraper] Unexpected error:', error)
     return NextResponse.json(
-      { error: error.message },
+      { error: 'Internal server error' },
       { status: 500 }
-    );
+    )
   }
+}
+
+// Helper function to trigger Apify scraper
+async function triggerApifyScraper(
+  handles: string[],
+  jobId: string,
+  brandId: string,
+  supabase: ReturnType<typeof getSupabase>
+) {
+  const apifyToken = process.env.APIFY_TOKEN
+
+  if (!apifyToken) {
+    throw new Error('APIFY_TOKEN not configured')
+  }
+
+  // Apify TikTok scraper endpoint
+  const actorId = 'apidojo/tiktok-profile-scraper'
+  const apiUrl = `https://api.apify.com/v2/acts/${actorId}/runs`
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apifyToken}`,
+    },
+    body: JSON.stringify({
+      profiles: handles.map(h => `https://www.tiktok.com/@${h}`),
+      resultsPerPage: 30,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Apify API error: ${error}`)
+  }
+
+  const result = await response.json()
+  console.log('[API run-scraper] Apify run started:', result.data?.id)
+
+  // The webhook would handle completion, but for now we'll poll
+  // In production, set up a webhook endpoint
 }

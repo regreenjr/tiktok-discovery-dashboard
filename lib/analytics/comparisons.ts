@@ -33,7 +33,7 @@ export function prepareComparisonData(
 
     if (metrics.includes('engagement')) {
       data.engagement =
-        groupVideos.reduce((sum, v) => sum + v.engagement_rate, 0) / groupVideos.length;
+        groupVideos.reduce((sum, v) => sum + (v.engagement_rate || 0), 0) / groupVideos.length;
     }
 
     if (metrics.includes('views')) {
