@@ -309,10 +309,10 @@ function generateRuleBasedAnalysis(video: Video, engagementRate: string): VideoA
 // POST /api/analyze/video/[id] - Get AI analysis for single video
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const videoId = params.id
+    const { id: videoId } = await params
 
     console.log('[API analyze] Analyzing video:', videoId)
 
@@ -376,7 +376,7 @@ export async function POST(
 // GET /api/analyze/video/[id] - Also support GET requests
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  return POST(request, { params })
+  return POST(request, context)
 }
