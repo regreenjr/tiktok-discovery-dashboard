@@ -1,0 +1,635 @@
+<project_specification>
+  <project_name>TikTok Discovery Dashboard</project_name>
+
+  <overview>
+    A comprehensive TikTok competitor analysis platform that scrapes competitor accounts, tracks video performance metrics (views, comments, shares, saves), and uses AI to analyze WHY content performs well. The dashboard surfaces actionable insights on hooks, formats, emotions, hashtags, and posting times to help users replicate viral content strategies at scale. Currently a single-user tool with architecture designed for future multi-tenant SaaS expansion.
+  </overview>
+
+  <deployment>
+    <production_url>https://tiktok-discovery-dashboard.vercel.app</production_url>
+    <repository>https://github.com/regreenjr/tiktok-discovery-dashboard</repository>
+    <hosting>Vercel (auto-deploy from main branch)</hosting>
+  </deployment>
+
+  <technology_stack>
+    <frontend>
+      <framework>Next.js (App Router)</framework>
+      <styling>Tailwind CSS</styling>
+      <charts>Recharts</charts>
+      <date_handling>date-fns</date_handling>
+    </frontend>
+    <backend>
+      <runtime>Next.js API Routes (serverless)</runtime>
+      <database>Supabase (PostgreSQL)</database>
+      <scraping>Apify (apidojo/tiktok-profile-scraper)</scraping>
+    </backend>
+    <communication>
+      <api>REST API</api>
+      <realtime>Polling (10-second intervals for scrape status)</realtime>
+    </communication>
+    <deployment>
+      <platform>Vercel</platform>
+      <ci_cd>Auto-deploy on push to main</ci_cd>
+    </deployment>
+  </technology_stack>
+
+  <prerequisites>
+    <environment_setup>
+      - Node.js 18+
+      - npm or yarn
+      - Supabase account with project
+      - Apify account with API token
+      - Vercel account for deployment
+    </environment_setup>
+    <environment_variables>
+      - APIFY_TOKEN: Apify API token for scraping
+      - NEXT_PUBLIC_SUPABASE_URL: Supabase project URL
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY: Supabase anonymous key
+      - SUPABASE_SERVICE_KEY: Supabase service role key (server-side)
+    </environment_variables>
+  </prerequisites>
+
+  <feature_count>200</feature_count>
+
+  <security_and_access_control>
+    <current_state>
+      Single-user application, no authentication implemented yet.
+    </current_state>
+    <future_state>
+      <user_roles>
+        <role name="regular_user">
+          <permissions>
+            - Can view their own brand's dashboard
+            - Can add/edit/delete competitor accounts for their brand
+            - Can trigger scrapes for their brand
+            - Can view AI insights for their brand
+            - Cannot see other users' brands or data
+          </permissions>
+          <protected_routes>
+            - /dashboard (authenticated users, own brand only)
+            - /manage (authenticated users, own brand only)
+          </protected_routes>
+        </role>
+        <role name="super_admin">
+          <permissions>
+            - Can view all brands across all users
+            - Can manage all users and their brands
+            - Can access admin panel
+            - Can view system-wide analytics
+          </permissions>
+          <protected_routes>
+            - /admin/* (super-admin only)
+          </protected_routes>
+        </role>
+      </user_roles>
+      <authentication>
+        <method>Email/password (Supabase Auth) - to be implemented</method>
+        <session_timeout>TBD</session_timeout>
+      </authentication>
+    </future_state>
+  </security_and_access_control>
+
+  <core_features>
+    <existing_features_built>
+      <brand_management>
+        - Create new brands
+        - Select/switch between brands
+        - View brand details
+        - Delete brands
+        - Track last_scraped_at timestamp per brand
+      </brand_management>
+
+      <competitor_account_management>
+        - Add single TikTok account (with/without @ symbol)
+        - Bulk add accounts (paste multiple handles, one per line)
+        - Smart duplicate detection (global unique constraint on handle)
+        - Activate/deactivate accounts
+        - Delete accounts
+        - View account list per brand
+      </competitor_account_management>
+
+      <scraper_integration>
+        - Trigger Apify scraper via UI button
+        - Fire-and-forget pattern (non-blocking)
+        - Scrape job tracking in database
+        - Duplicate job prevention (one job per brand at a time)
+        - Scrape status API endpoint
+        - Real-time status display with auto-refresh
+        - Status badges: Fresh (<1h), Recent (<24h), Stale (>24h), Scraping (active)
+        - Time-ago formatting (Just now, 5m ago, 2h ago, 3d ago)
+      </scraper_integration>
+
+      <dashboard_widgets_phase_1_2>
+        - TopInsightCard: Best-performing pattern (hook/format/emotion)
+        - PerformanceSummary: Viral video percentage, average virality score
+        - WorkingNowWidget: Top format, hashtag, and posting time
+        - DashboardGrid: Responsive widget container
+        - Empty state handling when no data
+      </dashboard_widgets_phase_1_2>
+
+      <video_data_display>
+        - Video list view
+        - Video metrics: views/plays, comments, shares, saves
+        - Virality score calculation
+        - Content attributes: hook_type, format, emotion
+      </video_data_display>
+
+      <analytics_library>
+        - calculateTopInsight(videos): Find best-performing pattern
+        - groupByMetric(videos, key): Group by hook_type, format, etc.
+        - calculateViralPercentage(videos): % of videos with virality >= 2.0
+        - calculateAvgVirality(videos): Average virality score
+      </analytics_library>
+    </existing_features_built>
+
+    <planned_features_dashboard_phases_3_7>
+      <phase_3_comparison_charts>
+        - HookPerformance chart: Compare different hook types by engagement
+        - FormatComparison chart: Compare formats (talking head, duet, stitch, etc.)
+        - EmotionAnalysis chart: Which emotions drive virality
+        - HashtagPerformance chart: Top hashtags by engagement
+      </phase_3_comparison_charts>
+
+      <phase_4_trend_analysis>
+        - ViralityTrend: Virality scores over time
+        - EngagementTrend: Views/comments/shares over time
+        - PostingTimeAnalysis: Best times to post
+        - ContentVolumeTracker: Competitor posting frequency
+      </phase_4_trend_analysis>
+
+      <phase_5_compact_widgets>
+        - TopHashtags widget: Most effective hashtags
+        - PainPoints widget: Common themes/problems addressed
+        - TrendingSounds widget: Popular audio tracks
+        - ContentCalendar widget: Optimal posting schedule
+      </phase_5_compact_widgets>
+
+      <phase_6_enhanced_video_cards>
+        - Sparkline mini-charts on video cards
+        - Quick metrics preview
+        - Video thumbnail display
+        - One-click AI analysis trigger
+      </phase_6_enhanced_video_cards>
+
+      <phase_7_polish_optimization>
+        - Performance optimization
+        - Loading state improvements
+        - Animation and transitions
+        - Mobile responsiveness refinement
+      </phase_7_polish_optimization>
+    </planned_features_dashboard_phases_3_7>
+
+    <planned_features_ai_analysis_engine>
+      <automatic_tagging>
+        - Auto-detect hook type (curiosity, shock, question, etc.)
+        - Auto-detect format (talking head, slideshow, duet, stitch, etc.)
+        - Auto-detect emotion (funny, inspiring, controversial, etc.)
+        - Auto-extract pain points/topics
+        - Auto-identify pattern interrupts and pacing
+        - Auto-tag sounds/music
+      </automatic_tagging>
+
+      <on_demand_explanation>
+        - Click any video to get AI breakdown
+        - "Why this works" explanation
+        - Hook analysis with timestamp
+        - Format breakdown
+        - Emotion mapping
+        - Engagement driver identification
+        - Replication suggestions
+      </on_demand_explanation>
+
+      <pattern_synthesis>
+        - Cross-video pattern detection
+        - "What's working right now" summary
+        - Trend identification across competitors
+        - Emerging format detection
+        - Declining trend alerts
+        - Weekly/monthly pattern reports
+      </pattern_synthesis>
+
+      <content_suggestions>
+        - AI-generated content ideas based on patterns
+        - "You should try" recommendations
+        - Hook templates from top performers
+        - Format recommendations
+        - Optimal posting time suggestions
+        - Hashtag recommendations
+      </content_suggestions>
+    </planned_features_ai_analysis_engine>
+
+    <planned_features_multi_user_saas>
+      <authentication>
+        - User registration (email/password)
+        - User login
+        - Password reset flow
+        - Session management
+        - Logout functionality
+      </authentication>
+
+      <user_management>
+        - User profile page
+        - User settings
+        - User-to-brand association (one brand per user initially)
+        - Brand isolation (users only see their data)
+      </user_management>
+
+      <super_admin_features>
+        - Admin dashboard (view all brands)
+        - User management (view/edit/delete users)
+        - System-wide analytics
+        - Manual user creation
+      </super_admin_features>
+
+      <self_service>
+        - Users can add their own competitor accounts
+        - Users can trigger their own scrapes
+        - Users can manage their brand settings
+        - Users can view their own insights
+      </self_service>
+
+      <billing_future>
+        - Usage tracking (placeholder for future)
+        - Billing integration (TBD)
+        - Plan tiers (TBD)
+      </billing_future>
+    </planned_features_multi_user_saas>
+
+    <potential_improvements>
+      <webhook_integration>
+        - Apify webhook on scrape completion
+        - Auto-update scrape_jobs.status to 'completed'
+        - Auto-update brands.last_scraped_at
+      </webhook_integration>
+
+      <progress_tracking>
+        - Update accounts_processed during scrape
+        - Update videos_found during scrape
+        - Real-time progress percentage
+      </progress_tracking>
+
+      <scrape_history>
+        - View last 5 scrape jobs per brand
+        - Scrape duration tracking
+        - Error logging and display
+      </scrape_history>
+
+      <auto_refresh>
+        - Auto-reload dashboard data when scrape completes
+        - Real-time data updates
+      </auto_refresh>
+    </potential_improvements>
+  </core_features>
+
+  <database_schema>
+    <tables>
+      <brands>
+        - id (UUID, primary key)
+        - name (TEXT)
+        - created_at (TIMESTAMPTZ)
+        - updated_at (TIMESTAMPTZ)
+        - last_scraped_at (TIMESTAMPTZ) - added for scrape tracking
+      </brands>
+
+      <competitor_accounts>
+        - id (UUID, primary key)
+        - handle (TEXT, UNIQUE globally)
+        - display_name (TEXT, nullable)
+        - follower_count (INTEGER, nullable)
+        - is_active (BOOLEAN, default true)
+        - category (TEXT, nullable)
+        - notes (TEXT, nullable)
+        - created_at (TIMESTAMPTZ)
+        - updated_at (TIMESTAMPTZ)
+        - brand_id (UUID, foreign key to brands)
+      </competitor_accounts>
+
+      <videos>
+        - id (UUID, primary key)
+        - account_id (UUID, foreign key to competitor_accounts)
+        - tiktok_id (TEXT, unique identifier from TikTok)
+        - description (TEXT)
+        - views (INTEGER)
+        - comments (INTEGER)
+        - shares (INTEGER)
+        - saves (INTEGER)
+        - virality_score (DECIMAL)
+        - hook_type (TEXT, nullable)
+        - format (TEXT, nullable)
+        - emotion (TEXT, nullable)
+        - posted_at (TIMESTAMPTZ)
+        - created_at (TIMESTAMPTZ)
+        - updated_at (TIMESTAMPTZ)
+      </videos>
+
+      <scrape_jobs>
+        - id (UUID, primary key)
+        - brand_id (UUID, foreign key to brands)
+        - scraper_type (TEXT: 'competitor', 'comments', 'trends', 'all')
+        - status (TEXT: 'pending', 'running', 'completed', 'failed')
+        - started_at (TIMESTAMPTZ)
+        - completed_at (TIMESTAMPTZ, nullable)
+        - error_message (TEXT, nullable)
+        - accounts_processed (INTEGER, default 0)
+        - videos_found (INTEGER, default 0)
+        - created_at (TIMESTAMPTZ)
+      </scrape_jobs>
+
+      <users_future>
+        - id (UUID, primary key)
+        - email (TEXT, unique)
+        - role (TEXT: 'user', 'admin')
+        - brand_id (UUID, foreign key to brands)
+        - created_at (TIMESTAMPTZ)
+        - updated_at (TIMESTAMPTZ)
+      </users_future>
+    </tables>
+
+    <indexes>
+      - idx_scrape_jobs_brand_id ON scrape_jobs(brand_id)
+      - idx_scrape_jobs_status ON scrape_jobs(status)
+      - idx_scrape_jobs_started_at ON scrape_jobs(started_at DESC)
+      - idx_competitor_accounts_brand_id ON competitor_accounts(brand_id)
+      - idx_videos_account_id ON videos(account_id)
+    </indexes>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <existing_endpoints>
+      <accounts>
+        - GET /api/accounts - List accounts (optionally filtered by brand_id)
+        - POST /api/accounts - Create single account
+        - DELETE /api/accounts/[id] - Delete account
+        - POST /api/accounts/bulk - Bulk create accounts
+      </accounts>
+
+      <brands>
+        - GET /api/brands - List all brands
+        - POST /api/brands - Create brand
+        - DELETE /api/brands/[id] - Delete brand
+      </brands>
+
+      <scraper>
+        - POST /api/run-scraper - Trigger Apify scraper for brand
+        - GET /api/scrape-status - Get scrape status (by brandId or all)
+      </scraper>
+
+      <videos>
+        - GET /api/videos - List videos (filtered by brand)
+      </videos>
+    </existing_endpoints>
+
+    <planned_endpoints>
+      <ai_analysis>
+        - POST /api/analyze/video/[id] - Get AI analysis for single video
+        - GET /api/analyze/patterns - Get pattern synthesis for brand
+        - GET /api/analyze/suggestions - Get content suggestions
+      </ai_analysis>
+
+      <auth_future>
+        - POST /api/auth/register - User registration
+        - POST /api/auth/login - User login
+        - POST /api/auth/logout - User logout
+        - POST /api/auth/reset-password - Password reset
+      </auth_future>
+
+      <webhooks>
+        - POST /api/webhooks/apify - Receive Apify completion webhook
+      </webhooks>
+    </planned_endpoints>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    <main_structure>
+      - Header with brand selector dropdown
+      - Main content area (full width)
+      - Dashboard grid with responsive widgets
+      - Manage page with tabbed interface (Brands, Accounts, Scraper)
+    </main_structure>
+
+    <key_pages>
+      <dashboard>
+        - Brand selector
+        - Scrape status badge (when brand selected)
+        - Stats cards (quick metrics)
+        - Widget grid (TopInsight, PerformanceSummary, WorkingNow)
+        - Video list/grid
+      </dashboard>
+
+      <manage>
+        - Tab navigation (Brands, Accounts, Scraper controls)
+        - Brand CRUD interface
+        - Account list with single/bulk add toggle
+        - Large textarea for bulk paste (15 rows, min-h-[300px])
+        - Scraper trigger buttons
+      </manage>
+    </key_pages>
+
+    <components>
+      - ScrapeStatus: Status badge with auto-refresh
+      - DashboardGrid: Responsive widget container
+      - TopInsightCard: Hero insight widget
+      - PerformanceSummary: Performance metrics
+      - WorkingNowWidget: Quick wins widget
+      - SparklineChart: Mini trend charts
+    </components>
+  </ui_layout>
+
+  <design_system>
+    <color_palette>
+      - Primary: TailwindCSS defaults
+      - Status badges: Green (Fresh), Yellow (Recent), Red (Stale), Blue (Scraping)
+      - Neutral backgrounds for cards
+    </color_palette>
+    <typography>
+      - System fonts via Tailwind
+      - Clear hierarchy for metrics and labels
+    </typography>
+    <patterns>
+      - Cards for widgets
+      - Badges for status
+      - Dropdowns for selection
+      - Toggle buttons for mode switching
+      - Large textareas for bulk input
+    </patterns>
+  </design_system>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Complete Dashboard Phases 3-4</title>
+      <tasks>
+        - Build HookPerformance comparison chart
+        - Build FormatComparison chart
+        - Build EmotionAnalysis chart
+        - Build ViralityTrend over time chart
+        - Build PostingTimeAnalysis widget
+      </tasks>
+    </step>
+
+    <step number="2">
+      <title>Complete Dashboard Phases 5-6</title>
+      <tasks>
+        - Build TopHashtags compact widget
+        - Build PainPoints widget
+        - Build TrendingSounds widget
+        - Add sparklines to video cards
+        - Enhance video card UI
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>AI Analysis Engine - Automatic Tagging</title>
+      <tasks>
+        - Integrate AI service (OpenAI or similar)
+        - Build auto-tagging pipeline for new videos
+        - Implement hook type detection
+        - Implement format detection
+        - Implement emotion/pain point extraction
+      </tasks>
+    </step>
+
+    <step number="4">
+      <title>AI Analysis Engine - On-Demand & Synthesis</title>
+      <tasks>
+        - Build "Why it works" analysis endpoint
+        - Build pattern synthesis endpoint
+        - Create AI insights UI components
+        - Build content suggestions feature
+      </tasks>
+    </step>
+
+    <step number="5">
+      <title>Multi-User Foundation</title>
+      <tasks>
+        - Set up Supabase Auth
+        - Build registration/login flows
+        - Implement user-brand association
+        - Add row-level security for data isolation
+      </tasks>
+    </step>
+
+    <step number="6">
+      <title>Multi-User Features</title>
+      <tasks>
+        - Build user profile/settings pages
+        - Build super-admin dashboard
+        - Implement user management
+        - Test multi-tenant isolation
+      </tasks>
+    </step>
+
+    <step number="7">
+      <title>Polish & Improvements</title>
+      <tasks>
+        - Implement Apify webhooks
+        - Add progress tracking during scrapes
+        - Build scrape history view
+        - Performance optimization
+        - Mobile responsiveness
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      - All existing features continue to work
+      - Dashboard shows meaningful, actionable insights
+      - AI accurately explains why content performs
+      - Pattern synthesis identifies real trends
+      - Content suggestions are actionable
+      - Multi-user isolation is complete
+    </functionality>
+    <user_experience>
+      - Quick daily check workflow (5-10 minutes)
+      - Clear understanding of WHY content works
+      - Easy competitor tracking
+      - Real-time scrape status visibility
+      - Mobile-friendly interface
+    </user_experience>
+    <technical_quality>
+      - No mock data - all data from real scrapes
+      - Sub-3-second page loads
+      - Error handling with user-friendly messages
+      - Proper TypeScript types throughout
+      - Clean API design
+    </technical_quality>
+    <design_polish>
+      - Consistent visual language
+      - Clear data visualization
+      - Responsive layouts
+      - Intuitive navigation
+      - Professional appearance
+    </design_polish>
+  </success_criteria>
+
+  <code_patterns>
+    <supabase_query>
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('table_name')
+        .select('columns')
+        .eq('column', value)
+        .single(); // or .maybeSingle() for optional
+      if (error) throw error;
+    </supabase_query>
+
+    <api_response>
+      // Success
+      return NextResponse.json({ success: true, data });
+      // Error
+      return NextResponse.json({ error: 'Message' }, { status: 400 });
+    </api_response>
+
+    <console_logging>
+      console.log('[Frontend] Message');  // Client-side
+      console.log('[API Name] Message');  // Server-side
+    </console_logging>
+  </code_patterns>
+
+  <file_structure>
+    /app/
+      /api/
+        /accounts/
+          route.ts              # Single account CRUD
+          /bulk/
+            route.ts            # Bulk account creation
+        /brands/
+          route.ts              # Brand CRUD
+        /scrape-status/
+          route.ts              # Get scrape job status
+        /run-scraper/
+          route.ts              # Trigger Apify scraper
+        /videos/
+          route.ts              # Video queries
+        /analyze/ (planned)
+          /video/[id]/
+            route.ts            # AI analysis per video
+          /patterns/
+            route.ts            # Pattern synthesis
+          /suggestions/
+            route.ts            # Content suggestions
+      page.tsx                  # Dashboard
+      /manage/
+        page.tsx                # Manage brands/accounts
+    /components/
+      ScrapeStatus.tsx          # Status badge component
+      /dashboard/
+        DashboardGrid.tsx       # Widget container
+        /widgets/
+          TopInsightCard.tsx
+          PerformanceSummary.tsx
+          WorkingNowWidget.tsx
+          (planned widgets...)
+      /charts/
+        SparklineChart.tsx
+        (planned charts...)
+    /lib/
+      /analytics/
+        insights.ts             # Calculation functions
+        types.ts                # TypeScript types
+      /scrapers/
+        competitor-monitor.ts   # Scraper reference
+        types.ts
+      supabase.ts               # Supabase client
+  </file_structure>
+</project_specification>

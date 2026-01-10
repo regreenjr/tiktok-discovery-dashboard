@@ -1,45 +1,185 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-let cachedClient: SupabaseClient | null = null;
+// Client-side Supabase client (uses anon key)
+export function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-/**
- * Get Supabase client (lazy initialization)
- * Only creates client when first accessed, not during module load
- */
-function stripQuotes(value: string): string {
-  if (!value) return value;
-  // Remove surrounding quotes if present
-  return value.replace(/^["'](.*)["']$/, '$1');
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey)
 }
 
-export function getSupabase(): SupabaseClient {
-  if (!cachedClient) {
-    const rawUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const rawKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Server-side Supabase client (uses service key for admin operations)
+export function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
 
-    const url = stripQuotes(rawUrl);
-    const key = stripQuotes(rawKey);
-
-    // Debug logging
-    console.log('Supabase init:', {
-      urlRaw: rawUrl?.substring(0, 30),
-      urlStripped: url?.substring(0, 30),
-      keyRaw: rawKey?.substring(0, 30),
-      keyStripped: key?.substring(0, 30),
-      hadQuotesUrl: rawUrl !== url,
-      hadQuotesKey: rawKey !== key,
-      // Show which env var was actually used
-      urlSource: process.env.SUPABASE_URL ? 'SUPABASE_URL' : 'NEXT_PUBLIC_SUPABASE_URL',
-      keySource: process.env.SUPABASE_SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-      // Show full key to compare (only in debug)
-      fullKey: key,
-    });
-
-    if (!url || !key) {
-      throw new Error('Supabase configuration is missing');
-    }
-
-    cachedClient = createClient(url, key);
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase environment variables')
   }
-  return cachedClient;
+
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
+// Type definitions for database tables
+export interface Database {
+  public: {
+    Tables: {
+      brands: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+          updated_at: string
+          last_scraped_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+          last_scraped_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_at?: string
+          updated_at?: string
+          last_scraped_at?: string | null
+        }
+      }
+      competitor_accounts: {
+        Row: {
+          id: string
+          handle: string
+          display_name: string | null
+          follower_count: number | null
+          is_active: boolean
+          category: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+          brand_id: string
+        }
+        Insert: {
+          id?: string
+          handle: string
+          display_name?: string | null
+          follower_count?: number | null
+          is_active?: boolean
+          category?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          brand_id: string
+        }
+        Update: {
+          id?: string
+          handle?: string
+          display_name?: string | null
+          follower_count?: number | null
+          is_active?: boolean
+          category?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          brand_id?: string
+        }
+      }
+      videos: {
+        Row: {
+          id: string
+          account_id: string
+          tiktok_id: string
+          description: string
+          views: number
+          comments: number
+          shares: number
+          saves: number
+          virality_score: number
+          hook_type: string | null
+          format: string | null
+          emotion: string | null
+          posted_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          tiktok_id: string
+          description: string
+          views: number
+          comments: number
+          shares: number
+          saves: number
+          virality_score: number
+          hook_type?: string | null
+          format?: string | null
+          emotion?: string | null
+          posted_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          account_id?: string
+          tiktok_id?: string
+          description?: string
+          views?: number
+          comments?: number
+          shares?: number
+          saves?: number
+          virality_score?: number
+          hook_type?: string | null
+          format?: string | null
+          emotion?: string | null
+          posted_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      scrape_jobs: {
+        Row: {
+          id: string
+          brand_id: string
+          scraper_type: string
+          status: string
+          started_at: string
+          completed_at: string | null
+          error_message: string | null
+          accounts_processed: number
+          videos_found: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          scraper_type: string
+          status?: string
+          started_at?: string
+          completed_at?: string | null
+          error_message?: string | null
+          accounts_processed?: number
+          videos_found?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          scraper_type?: string
+          status?: string
+          started_at?: string
+          completed_at?: string | null
+          error_message?: string | null
+          accounts_processed?: number
+          videos_found?: number
+          created_at?: string
+        }
+      }
+    }
+  }
 }

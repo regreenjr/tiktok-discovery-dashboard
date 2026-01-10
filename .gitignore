@@ -41,3 +41,15 @@ yarn-error.log*
 next-env.d.ts
 # local env files
 .env*.local
+
+# IDE
+.idea/
+.vscode/
+
+# Agent files
+.agent.lock
+features.db
+assistant.db
+.claude_assistant_settings.json
+claude-progress.txt
+.playwright-mcp
