@@ -53,35 +53,35 @@ export async function DELETE(request: Request) {
 
   // First delete all associated accounts (and their videos due to CASCADE)
   console.log('[API brands] Deleting accounts for brand:', id);
-  const { error: accountsError, count: accountsCount } = await supabase
+  const { error: accountsError, data: deletedAccounts } = await supabase
     .from('competitor_accounts')
     .delete()
     .eq('brand_id', id)
-    .select('*', { count: 'exact' });
+    .select();
 
   if (accountsError) {
     console.error('[API brands] Failed to delete accounts:', accountsError);
     return NextResponse.json({ error: `Failed to delete accounts: ${accountsError.message}` }, { status: 500 });
   }
 
-  console.log('[API brands] Deleted', accountsCount || 0, 'accounts');
+  console.log('[API brands] Deleted', deletedAccounts?.length || 0, 'accounts');
 
   // Then delete the brand
   console.log('[API brands] Deleting brand:', id);
-  const { error: brandError, count: brandCount } = await supabase
+  const { error: brandError, data: deletedBrand } = await supabase
     .from('brands')
     .delete()
     .eq('id', id)
-    .select('*', { count: 'exact' });
+    .select();
 
   if (brandError) {
     console.error('[API brands] Failed to delete brand:', brandError);
     return NextResponse.json({ error: `Failed to delete brand: ${brandError.message}` }, { status: 500 });
   }
 
-  console.log('[API brands] Deleted', brandCount || 0, 'brand(s)');
+  console.log('[API brands] Deleted', deletedBrand?.length || 0, 'brand(s)');
 
-  if (brandCount === 0) {
+  if (!deletedBrand || deletedBrand.length === 0) {
     console.warn('[API brands] No brand was deleted - brand may not exist');
     return NextResponse.json({ error: 'Brand not found or could not be deleted' }, { status: 404 });
   }
