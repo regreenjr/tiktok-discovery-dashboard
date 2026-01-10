@@ -50,15 +50,15 @@ export default function ManagePage() {
   const loadBrands = async () => {
     const res = await fetch('/api/brands');
     const data = await res.json();
-    setBrands(data);
+    setBrands(data.data || data); // Handle both formats for backward compatibility
     setLoading(false);
   };
 
   const loadAccounts = async (brandId?: string) => {
-    const url = brandId ? `/api/accounts?brandId=${brandId}` : '/api/accounts';
+    const url = brandId ? `/api/accounts?brand_id=${brandId}` : '/api/accounts';
     const res = await fetch(url);
     const data = await res.json();
-    setAccounts(data);
+    setAccounts(data.data || data);
   };
 
   const createBrand = async (e: React.FormEvent) => {
