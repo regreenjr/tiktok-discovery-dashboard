@@ -13,7 +13,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(brands);
+  return NextResponse.json({ data: brands });
 }
 
 // POST - Create a new brand
@@ -49,13 +49,24 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Brand ID is required' }, { status: 400 });
   }
 
-  const { error } = await supabase
+  // First delete all associated accounts (and their videos due to CASCADE)
+  const { error: accountsError } = await supabase
+    .from('competitor_accounts')
+    .delete()
+    .eq('brand_id', id);
+
+  if (accountsError) {
+    return NextResponse.json({ error: `Failed to delete accounts: ${accountsError.message}` }, { status: 500 });
+  }
+
+  // Then delete the brand
+  const { error: brandError } = await supabase
     .from('brands')
     .delete()
     .eq('id', id);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (brandError) {
+    return NextResponse.json({ error: `Failed to delete brand: ${brandError.message}` }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
