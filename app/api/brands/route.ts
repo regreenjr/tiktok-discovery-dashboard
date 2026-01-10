@@ -70,7 +70,7 @@ export async function DELETE(request: Request) {
   if (accountIds.length > 0) {
     console.log('[API brands] Deleting videos for accounts:', accountIds);
     const { error: videosError, data: deletedVideos } = await supabase
-      .from('videos')
+      .from('competitor_videos')
       .delete()
       .in('account_id', accountIds)
       .select();
